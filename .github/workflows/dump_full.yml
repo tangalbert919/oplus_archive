@@ -25,7 +25,9 @@ jobs:
       id: download
       run: |
         curl -L ${{ inputs.ota }} -o ota.zip
-        echo ::set-output name=ota_ver::`unzip -p ota.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`
+        unzip -j ota.zip META-INF/com/android/metadata
+        echo ::set-output name=ota_ver::`cat metadata | grep ^version_name= | cut -b 14-`
+        echo ::set-output name=fingerprint::`cat metadata | grep ^post-build= | cut -b 12-`
 
     - name: Dump
       run: |
@@ -37,6 +39,9 @@ jobs:
       with:
         artifacts: ota/*.img.zst
         artifactErrorsFailBuild: true
-        body: ${{ inputs.ota }}
+        body: |
+          ~ Full OTA ~
+          Build fingerprint: ${{ steps.download.outputs.fingerprint }}
+          OTA URL: ${{ inputs.ota }}
         tag: ${{ steps.download.outputs.ota_ver }}
         token: ${{ secrets.GITHUB_TOKEN }}
