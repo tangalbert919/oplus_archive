@@ -9,6 +9,9 @@ on:
       ota2:
         description: 'OTA2'
         required: true
+      ota3:
+        description: 'OTA3'
+        required: false
 
 jobs:
   dump:
@@ -27,7 +30,7 @@ jobs:
         curl https://raw.githubusercontent.com/LineageOS/android_system_update_engine/lineage-20.0/update_metadata.proto -o update_metadata.proto
         protoc update_metadata.proto --python_out update_payload_extractor/update_payload
 
-    - name: Download
+    - name: Download (Part 1)
       id: download
       run: |
         curl -L ${{ inputs.ota1 }} -o ota1.zip
@@ -35,21 +38,53 @@ jobs:
         curl -L ${{ inputs.ota2 }} -o ota2.zip
         echo ::set-output name=ota2_ver::`unzip -p ota2.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`
 
-    - name: Dump
+    - name: Download (Part 2)
+      id: download_p2
+      if: inputs.ota3 != ''
+      run: |
+        curl -L ${{ inputs.ota3 }} -o ota3.zip
+        echo ::set-output name=ota3_ver::`unzip -p ota3.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`
+
+    - name: Dump (Part 1)
       run: |
         ./payload-dumper-go -o ota1 ota1.zip > /dev/null
         pushd ota1 ; for i in ./*.img; do mv -i "$i" "${i%.img}"; done; popd
         unzip ota2.zip payload.bin
-        pushd update_payload_extractor ; ./extract.py --skip_hash --output_dir ../ota2 --old_dir ../ota1 ../payload.bin; popd
-        pushd ota2; for f in *; do zstd $f; done; popd
+        pushd update_payload_extractor ; ./extract.py --skip_hash --output_dir ../final-ota --old_dir ../ota1 ../payload.bin; popd
 
-    - name: Upload release assets
+    - name: Dump (Part 2)
+      if: inputs.ota3 != ''
+      run: |
+        rm payload.bin
+        rm -rf ota1
+        unzip ota3.zip payload.bin
+        mv final-ota ota2
+        pushd update_payload_extractor ; ./extract.py --skip_hash --output_dir ../final-ota --old_dir ../ota2 ../payload.bin; popd
+
+    - name: Zip images
+      run: |
+        pushd final-ota; for f in *; do zstd $f; done; popd
+
+    - name: Upload release assets (two OTAs)
       uses: ncipollo/release-action@v1
+      if: inputs.ota3 == ''
       with:
-        artifacts: ota2/*.img.zst
+        artifacts: final-ota/*.img.zst
         artifactErrorsFailBuild: true
         body: |
           ~ Incremental OTA ~
           [${{ steps.download.outputs.ota1_ver }}](${{ inputs.ota1 }}) (full) -> [${{ steps.download.outputs.ota2_ver }}](${{ inputs.ota2 }})
         tag: ${{ steps.download.outputs.ota2_ver }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload release assets (three OTAs)
+      uses: ncipollo/release-action@v1
+      if: inputs.ota3 != ''
+      with:
+        artifacts: final-ota/*.img.zst
+        artifactErrorsFailBuild: true
+        body: |
+          ~ Incremental OTA ~
+          [${{ steps.download.outputs.ota1_ver }}](${{ inputs.ota1 }}) (full) -> [${{ steps.download.outputs.ota2_ver }}](${{ inputs.ota2 }}) -> [${{ steps.download_p2.outputs.ota3_ver }}](${{ inputs.ota3 }})
+        tag: ${{ steps.download_p2.outputs.ota3_ver }}
         token: ${{ secrets.GITHUB_TOKEN }}
