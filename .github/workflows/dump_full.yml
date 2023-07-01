@@ -26,8 +26,8 @@ jobs:
       run: |
         curl -L ${{ inputs.ota }} -o ota.zip
         unzip -j ota.zip META-INF/com/android/metadata
-        echo ::set-output name=ota_ver::`cat metadata | grep ^version_name= | cut -b 14-`
-        echo ::set-output name=fingerprint::`cat metadata | grep ^post-build= | cut -b 12-`
+        echo "ota_ver=`cat metadata | grep ^version_name= | cut -b 14-`" >> "$GITHUB_OUTPUT"
+        echo "fingerprint=`cat metadata | grep ^post-build= | cut -b 12-`" >> "$GITHUB_OUTPUT"
 
     - name: Dump
       run: |

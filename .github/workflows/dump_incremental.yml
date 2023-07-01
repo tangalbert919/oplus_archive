@@ -34,16 +34,16 @@ jobs:
       id: download
       run: |
         curl -L ${{ inputs.ota1 }} -o ota1.zip
-        echo ::set-output name=ota1_ver::`unzip -p ota1.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`
+        echo "ota1_ver=`unzip -p ota1.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`" >> "$GITHUB_OUTPUT"
         curl -L ${{ inputs.ota2 }} -o ota2.zip
-        echo ::set-output name=ota2_ver::`unzip -p ota2.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`
+        echo "ota2_ver=`unzip -p ota2.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`" >> "$GITHUB_OUTPUT"
 
     - name: Download (Part 2)
       id: download_p2
       if: inputs.ota3 != ''
       run: |
         curl -L ${{ inputs.ota3 }} -o ota3.zip
-        echo ::set-output name=ota3_ver::`unzip -p ota3.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`
+        echo "ota3_ver=`unzip -p ota3.zip META-INF/com/android/metadata | grep ^version_name= | cut -b 14-`" >> "$GITHUB_OUTPUT"
 
     - name: Dump (Part 1)
       run: |
